@@ -34,28 +34,35 @@ transcriber = SBTranscriber(
 # Parcourir chaque fichier WAV dans le dossier audio
 for fichier in os.listdir(dossier_audio):
     chemin_fichier_wav = os.path.join(dossier_audio, fichier)
-    if os.path.isfile(chemin_fichier_wav) and fichier.endswith('.wav'):
-        y, sr = librosa.load(chemin_fichier_wav, sr=None)
-        y_resampled = librosa.resample(y, orig_sr=sr, target_sr=16000)
+    nom_fichier_texte = fichier.replace('.wav', '.txt')
+    chemin_fichier_texte = os.path.join(dossier_transcriptions, nom_fichier_texte)
 
-        # Assurez-vous que le tableau est en deux dimensions [nb_channels, nb_samples]
-        if y_resampled.ndim == 1:
-            y_resampled = y_resampled[np.newaxis, :]  # Ajoute une dimension pour les canaux
+    # Vérifier si la transcription existe déjà
+    if not os.path.isfile(chemin_fichier_texte):
+        if os.path.isfile(chemin_fichier_wav) and fichier.endswith('.wav'):
+            y, sr = librosa.load(chemin_fichier_wav, sr=None)
+            y_resampled = librosa.resample(y, orig_sr=sr, target_sr=16000)
 
-        # Créer un MemoryAudioBuffer avec le signal resamplé
-        audio_buffer = MemoryAudioBuffer(signal=y_resampled, sample_rate=16000)
-        audio_doc = AudioDocument(audio=audio_buffer)
+            # Assurez-vous que le tableau est en deux dimensions [nb_channels, nb_samples]
+            if y_resampled.ndim == 1:
+                y_resampled = y_resampled[np.newaxis, :]  # Ajoute une dimension pour les canaux
 
-        # Appliquer la diarisation et la transcription
-        speech_segments = speaker_detector.run([audio_doc.raw_segment])
-        transcriptions = transcriber.run(speech_segments)
+            # Créer un MemoryAudioBuffer avec le signal resamplé
+            audio_buffer = MemoryAudioBuffer(signal=y_resampled, sample_rate=16000)
+            audio_doc = AudioDocument(audio=audio_buffer)
 
-        # Écrire les transcriptions dans un fichier texte
-        nom_fichier_texte = fichier.replace('.wav', '.txt')
-        chemin_fichier_texte = os.path.join(dossier_transcriptions, nom_fichier_texte)
-        with open(chemin_fichier_texte, 'w') as fichier_texte:
-            for speech_seg in speech_segments:
-                transcription_attr = speech_seg.attrs.get(label="transcription")[0]
-                fichier_texte.write(f"{transcription_attr.value}\n")
+            # Appliquer la diarisation et la transcription
+            speech_segments = speaker_detector.run([audio_doc.raw_segment])
+            transcriptions = transcriber.run(speech_segments)
 
-        print(f"Transcription enregistrée : {chemin_fichier_texte}")
+            # Écrire les transcriptions dans un fichier texte
+            with open(chemin_fichier_texte, 'w') as fichier_texte:
+                for speech_seg in speech_segments:
+                    transcription_attr = speech_seg.attrs.get(label="transcription")[0]
+                    fichier_texte.write(f"{transcription_attr.value}\n")
+
+            print(f"Transcription enregistrée : {chemin_fichier_texte}")
+        else:
+            print(f"Le fichier {chemin_fichier_wav} n'est pas valide ou n'existe pas.")
+    else:
+        print(f"La transcription de {chemin_fichier_wav} existe déjà : {chemin_fichier_texte}")
